@@ -1,0 +1,16 @@
+version: '3'
+services:
+  layzspa_watchdog:
+    container_name: layzspa_watchdog
+    image: tomgidden/layzspa_watchdog_mqtt
+    environment:
+      - MQTT_HOST=mqtt.home
+      - MQTT_PORT=1883
+      - MQTT_TOPIC=/layzspa_status
+      - LOOP_SECONDS=10
+      - LAYZSPA_EMAIL=xxxx
+      - LAYZSPA_PASSWORD=xxxx
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    network_mode: host
