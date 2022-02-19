@@ -1,7 +1,7 @@
 version: '3'
 services:
-  layzspa_watchdog:
-    container_name: layzspa_watchdog
+  layzspa_watchdog_mqtt:
+    container_name: layzspa_watchdog_mqtt
     image: tomgidden/layzspa_watchdog_mqtt
     environment:
       - MQTT_HOST=mqtt.home

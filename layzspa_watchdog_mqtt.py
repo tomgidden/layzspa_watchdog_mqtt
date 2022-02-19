@@ -14,6 +14,8 @@ mqtt_host = os.environ['MQTT_HOST']
 mqtt_port = int(os.environ['MQTT_PORT'])
 mqtt_topic = os.environ['MQTT_TOPIC']
 loop_seconds = int(os.environ['LOOP_SECONDS'])
+email = os.environ["LAYZSPA_EMAIL"]
+password = os.environ["LAYZSPA_PASSWORD"]
 
 mqtt = paho.Client("layzspa_watchdog")
 mqtt.connect(mqtt_host, mqtt_port, 60)
@@ -43,8 +45,6 @@ async def auth():
     except Exception as e:
         print (e)
 
-        email = os.environ["LAYZSPA_EMAIL"]
-        password = os.environ["LAYZSPA_PASSWORD"]
         auth = Auth()
         response = await auth.get_token(email, password)
         cache_file.write_text(json.dumps(response))

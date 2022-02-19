@@ -15,4 +15,4 @@ RUN apt-get update -y && \
 
 COPY *.py /app/
 
-CMD ["/app/layzspa_watchdog_mqtt.py"]
+CMD ["python3","/app/layzspa_watchdog_mqtt.py"]
