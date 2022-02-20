@@ -1,0 +1,18 @@
+[Unit]
+Description=Blinkt
+After=network-online.target autofs.service
+
+[Service]
+ExecStart=python3 /home/gid/blinkt_mqtt.py
+ExecStop=
+WorkingDirectory=/home/gid
+User=gid
+Group=daemon
+SyslogIdentifier=blinkt
+StandardOutput=syslog
+Restart=on-failure
+KillSignal=SIGINT
+#Nice=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,20 +1,24 @@
 #!/usr/bin/env python
 
-from sys import exit
+import sys
 
-try:
-    import paho.mqtt.client as mqtt
-except ImportError:
-    exit("This example requires the paho-mqtt module\nInstall with: sudo pip install paho-mqtt")
-
+import paho.mqtt.client as mqtt
 import blinkt
 import time
+import datetime
 import threading
 import signal
 
 MQTT_SERVER = "mqtt.home"
 MQTT_PORT = 1883
-MQTT_TOPIC = "blinkt1"
+
+MQTT_TOPIC = "/blinkt1"
+MQTT_PING_TOPIC = "/pulse"
+MQTT_RESTART_TOPICS = [
+    "/restart",
+    "/blinkt1/restart"
+]
+MQTT_PONG_TOPIC = "/blinkt1/watchdog"
 
 # Set these to use authorisation
 MQTT_USER = None
@@ -29,6 +33,8 @@ exiting = False
 
 leds = None
 lock = threading.Lock()
+
+last_pinged = datetime.datetime.now()
 
 def clr_leds ():
     global leds
@@ -50,6 +56,9 @@ class LEDUpdateJob(threading.Thread):
 
     def run(self):
         while not self.event.wait(self.interval):
+            if datetime.datetime.now() - last_pinged > datetime.timedelta(minutes=10):
+                sys.exit(1)
+
             if lock.acquire(False):
                 update = False
                 now = time.time()
@@ -72,6 +81,9 @@ class LEDUpdateJob(threading.Thread):
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
     client.subscribe(MQTT_TOPIC)
+    client.subscribe(MQTT_PING_TOPIC)
+    for x in MQTT_RESTART_TOPICS:
+        client.subscribe(x)
 
 def handle_cmd (cmd, msg):
     try:
@@ -128,6 +140,14 @@ def handle_cmd (cmd, msg):
 
 
 def on_message(client, userdata, msg):
+
+    if msg.topic == MQTT_PING_TOPIC:
+        client.publish(MQTT_PONG_TOPIC, 'ping')
+        last_pinged = datetime.datetime.now()
+        return True
+
+    if msg.topic in MQTT_RESTART_TOPICS:
+        sys.exit(1)
 
     if lock.acquire(True):
         cmds = msg.payload.decode("utf-8").split(';')
