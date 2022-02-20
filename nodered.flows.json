@@ -1,0 +1,237 @@
+[
+    {
+        "id": "5972d70c.bd1ab8",
+        "type": "subflow",
+        "name": "to Influx",
+        "info": "",
+        "category": "",
+        "in": [
+            {
+                "x": 50,
+                "y": 30,
+                "wires": [
+                    {
+                        "id": "97906885.4b4158"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 540,
+                "y": 300,
+                "wires": [
+                    {
+                        "id": "16cbe674.650c6a",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#DDAA99"
+    },
+    {
+        "id": "16cbe674.650c6a",
+        "type": "function",
+        "z": "5972d70c.bd1ab8",
+        "name": "Reformat topic to influx",
+        "func": "msg.measurement = msg.topic.\n    replace(/\\//g, '_');\n\nif (-1 !== msg.topic.search(/timestamp$/)) return;\n\nif (undefined === msg.value)\n    msg.value = msg.payload;\n\nif ('string' === typeof msg.value)\n    msg.value = parseFloat(msg.value);\n\nif (isNaN(msg.value)) return;\nif (undefined === msg.value) return;\nif (null === msg.value) return;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 350,
+        "y": 200,
+        "wires": [
+            [
+                "6ff0ecd7.f27da4"
+            ]
+        ]
+    },
+    {
+        "id": "89f9bafb.01cff8",
+        "type": "influxdb out",
+        "z": "5972d70c.bd1ab8",
+        "influxdb": "24819853.33e638",
+        "name": "",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "x": 800,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "6ff0ecd7.f27da4",
+        "type": "rbe",
+        "z": "5972d70c.bd1ab8",
+        "name": "",
+        "func": "rbe",
+        "gap": "",
+        "start": "",
+        "inout": "out",
+        "property": "value",
+        "x": 570,
+        "y": 140,
+        "wires": [
+            [
+                "89f9bafb.01cff8"
+            ]
+        ]
+    },
+    {
+        "id": "97906885.4b4158",
+        "type": "function",
+        "z": "5972d70c.bd1ab8",
+        "name": "strings,numbers to numbers; skip others",
+        "func": "if ('number' === typeof msg.payload)\n    return msg;\n\nif ('string' === typeof msg.payload) {\n    let num = Number(msg.payload);\n    if (!isNaN(num)) {\n        msg.payload = num;\n        return msg;\n    }\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 220,
+        "y": 80,
+        "wires": [
+            [
+                "16cbe674.650c6a"
+            ]
+        ]
+    },
+    {
+        "id": "24819853.33e638",
+        "type": "influxdb",
+        "hostname": "influx.home",
+        "port": "8086",
+        "protocol": "http",
+        "database": "sensors",
+        "name": "",
+        "usetls": false,
+        "tls": "1d46fd07.d29ff3"
+    },
+    {
+        "id": "1d46fd07.d29ff3",
+        "type": "tls-config",
+        "name": "5c5c6c33",
+        "cert": "/home/gid/.agent/5c5c6c33-certificate.pem.crt",
+        "key": "/home/gid/.agent/5c5c6c33-private.pem.key",
+        "ca": "/home/gid/.agent/root_ca.crt",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true
+    },
+    {
+        "id": "3bc69fcd0a23182d",
+        "type": "mqtt in",
+        "z": "d822cb33.89dfe8",
+        "name": "",
+        "topic": "/layzspa_status/#",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "cc4a6967.db7448",
+        "nl": false,
+        "rap": false,
+        "x": 100,
+        "y": 900,
+        "wires": [
+            [
+                "586ca3ae96938d99",
+                "63fc8bd4abaa9d39"
+            ]
+        ]
+    },
+    {
+        "id": "586ca3ae96938d99",
+        "type": "function",
+        "z": "d822cb33.89dfe8",
+        "name": "",
+        "func": "\n\nconst method = msg.topic.replace(/^.+\\//, '')\nconst data = msg.payload;\n\nlet leds = flow.get('leds') || [];\n\nfunction updateLEDs(leds=undefined) {\n    \n    if (leds) \n        flow.set('leds', leds);\n    else\n        leds = flow.get('leds') || [];\n\n    let state = JSON.stringify(leds);\n    if (state == flow.get('state'))\n        return;\n        \n    flow.set('state', state);\n    \n    let buf = ['clr'];\n    for (let i=0; i<8; i++) {\n        if (leds[i] !== undefined)\n            buf[i] = `rgb,${i},${leds[i]}`;\n        else\n            buf[i] = `rgb,${i},0,0,0`;\n    }\n    \n    node.send({payload: buf.join(';')});\n}\n\nfunction setLEDs(ls,r1,g1,b1,dur=0,r2=0,g2=0,b2=0) {\n    let leds = flow.get('leds') || [];\n\n    if (ls == '*')\n        ls = [0,1,2,3,4,5,6,7];\n    else\n        ls = ls.split(',');\n    \n    ls.forEach(l => {\n        leds[l] = [r1,g1,b1,r2,g2,b2,dur].join(',');\n    });\n\n    flow.set('leds', leds);\n}\n\nif (method == 'udp') {\n    // {\"updated_at\": \"2022-02-19 20:36:50.071587\", \"power\": true, \"heat_power\": true, \"filter_power\": true, \"wave_power\": false, \"locked\": true, \"temp_set_unit\": \"\\u00b0C\", \"temp_now\": 38, \"temp_set\": 31, \"heat_temp_reach\": false, \"ok\": true, \"online\": true}\n    const updated_at = (new Date(`${data.updated_at}`));\n    const since = (new Date()) - updated_at;\n\n    if (!data['online'])\n        setLEDs('0,1,2,3', 255, 0, 0, 0.5, 255,64,0);\n    else if (!data['power']) {\n        setLEDs('0,1,2,3', 255, 0, 0, 0.5, 255,64,0);\n    }\n    else {\n        setLEDs('0,1,2,3,4,5,6,7', 0, 0, 0);\n        if (!data['filter_power'])\n            setLEDs('0,1', 255, 32, 0, 0.5);\n        if (!data['heat_power'])\n            setLEDs('2,3', 255, 32, 0);\n    }\n    \n    //if (data['away'] !== 'off')\n    //    setLEDs('3', 0, 0, 128);\n    \n    const delta = data['temp_now'] - data['temp_set'];\n    if (delta <= -10) {\n        setLEDs('4,5,6,7', 255,64,0);\n    } else if (delta <= -5) {\n        setLEDs('6,7', 255,128,0);\n        leds[6] = leds[7] = '255,192,0';\n    } else if (delta <= -2) {\n        setLEDs('6,7', 128,128,0);\n    } else if (delta <= -1) {\n        setLEDs('6', 128,128,0);\n        setLEDs('7', 128,128,0);\n    } else if (delta >= 0) {\n        setLEDs('7', 32,64,0);\n    }\n    \n    if (data['wave_power'])\n        setLEDs('3', 0,128,255);\n    \n}\nelse if (method == 'api') {\n    // {\"updated_at\":\"2022-02-19 03:54:15\",\"wave_appm_min\":59940,\"heat_timer_min\":0,\"earth\":0,\"wave_timer_min\":59940,\"filter_timer_min\":0,\"heat_appm_min\":0,\"filter_appm_min\":0,\"locked\":1,\"power\":true,\"heat_power\":true,\"wave_power\":false,\"filter_power\":true,\"temp_now\":38,\"temp_set\":38,\"temp_set_unit\":\"°C\",\"heat_temp_reach\":true,\"system_err1\":0,\"system_err2\":0,\"system_err3\":0,\"system_err4\":0,\"system_err5\":0,\"system_err6\":0,\"system_err7\":0,\"system_err8\":0,\"system_err9\":0,\"online\":true}\n    const updated_at = (new Date(`${data.updated_at}`));\n    const since = (new Date()) - updated_at;\n\n    if (!data['online'])\n        setLEDs('0,1,2,3', 255, 0, 0, 0.5, 255,64,0);\n    else if (!data['power']) {\n        setLEDs('0,1,2,3', 255, 0, 0, 0.5, 255,64,0);\n    }\n    else {\n        setLEDs('0,1,2,3,4,5,6,7', 0, 0, 0);\n        if (!data['filter_power'])\n            setLEDs('0,1', 255, 32, 0, 0.5);\n        if (!data['heat_power'])\n            setLEDs('2,3', 255, 32, 0);\n    }\n    \n    //if (data['away'] !== 'off')\n    //    setLEDs('3', 0, 0, 128);\n    \n    const delta = data['temp_now'] - data['temp_set'];\n    if (delta <= -10) {\n        setLEDs('4,5,6,7', 255,64,0);\n    } else if (delta <= -5) {\n        setLEDs('6,7', 255,128,0);\n        leds[6] = leds[7] = '255,192,0';\n    } else if (delta <= -2) {\n        setLEDs('6,7', 128,128,0);\n    } else if (delta <= -1) {\n        setLEDs('6', 128,128,0);\n        setLEDs('7', 128,128,0);\n    } else if (delta >= 0) {\n        setLEDs('7', 32,64,0);\n    }\n    \n    if (data['wave_power'])\n        setLEDs('3', 0,128,255);\n}\n\nupdateLEDs();\nreturn undefined;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 940,
+        "wires": [
+            [
+                "4e3965340aacee2e"
+            ]
+        ]
+    },
+    {
+        "id": "63fc8bd4abaa9d39",
+        "type": "function",
+        "z": "d822cb33.89dfe8",
+        "name": "",
+        "func": "const method = msg.topic.replace(/^.+\\//, '')\nconst data = msg.payload;\n\nconst send = (a,k,v) => node.send({topic: `hottub_${a}_${k}`, payload:v});\n\nif (method == 'ping') {\n    node.send({topic: 'hottub_ping', data});\n}\nelse if (method == 'udp') {\n    const s = k => send('udp', k, data[k]?1:0);\n    \n    s('power');\n    s('online');\n    s('filter_power');\n    s('heat_power');\n    s('wave_power');\n\n    send('udp', 'temperature', data['temp_now']);\n    send('udp', 'target', data['temp_set']);\n}\nelse if (method == 'api') {\n    const s = k => send('api', data[k]?1:0);\n    \n    s('power');\n    s('online');\n    s('filter_power');\n    s('heat_power');\n    s('wave_power');\n\n    send('udp', 'temperature', data['temp_now']);\n    send('udp', 'target', data['temp_set']);\n}\n\nreturn undefined;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 860,
+        "wires": [
+            [
+                "f9cd01cb5451c155"
+            ]
+        ]
+    },
+    {
+        "id": "4e3965340aacee2e",
+        "type": "mqtt out",
+        "z": "d822cb33.89dfe8",
+        "name": "",
+        "topic": "blinkt1",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "cc4a6967.db7448",
+        "x": 670,
+        "y": 940,
+        "wires": []
+    },
+    {
+        "id": "f9cd01cb5451c155",
+        "type": "subflow:5972d70c.bd1ab8",
+        "z": "d822cb33.89dfe8",
+        "name": "",
+        "env": [],
+        "x": 680,
+        "y": 860,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cc4a6967.db7448",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "mqtt.home",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": true,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "/mqtt/nodered/birth",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "closeTopic": "/mqtt/nodered/close",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "willTopic": "/mqtt/nodered/will",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": ""
+    }
+]
