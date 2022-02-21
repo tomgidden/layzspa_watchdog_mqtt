@@ -57,7 +57,11 @@ def ping_main():
 
     while running:
         ping = ping3.ping(ping_host, timeout=10)
-        mqtt_send('ping', ping if ping > 0 else "false")
+        print (ping_host, ping, json.dumps(ping))
+        if ping > 0:
+            mqtt_send('ping', ping)
+        else:
+            mqtt_send('ping', "false")
         time.sleep(ping_delay)
 
 def udp_main():
